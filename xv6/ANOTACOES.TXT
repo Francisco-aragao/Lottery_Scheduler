@@ -1,1 +1,3 @@
 REPOSITORIO SIMILAR -> https://github.com/avaiyang/xv6-lottery-scheduling/blob/master/proc.c
+
+CAPITULO DO LIVRO COM INFORMAÇÔES DO TEMA -> https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched-lottery.pdf
