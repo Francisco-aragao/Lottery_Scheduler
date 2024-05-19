@@ -1,0 +1,1 @@
+REPOSITORIO SIMILAR -> https://github.com/avaiyang/xv6-lottery-scheduling/blob/master/proc.c
