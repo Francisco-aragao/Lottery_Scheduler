@@ -112,3 +112,15 @@ uint64 sys_getcnt(void) {
 
   return -1;
 }
+
+// settickets syscall
+
+uint64 sys_settickets(void) {
+  int num, pid;
+  
+  argint(0, &num);
+  pid = myproc()->pid;
+
+  //set num tickets to calling process (pid)
+  if (num < 1) return -1;
+}
