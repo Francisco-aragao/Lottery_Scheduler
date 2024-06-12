@@ -142,7 +142,7 @@ uint64 sys_getpinfo(void) {
 
   if ((void*) pstat_ptr == (void*) 0) return -1;
 
-  memmove((void*) pstat_ptr, &pstat, sizeof(pstat));
+  memmove((void*) pstat_ptr, &pstat, sizeof(struct pstat));
 
   return 0;
 }
