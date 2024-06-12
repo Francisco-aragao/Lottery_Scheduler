@@ -11,11 +11,12 @@ int main(int argc, char *argv[]) {
 
     int res = settickets(atoi(argv[1]));
 
-    if (res == -1)
+    if (res == -1) {
         fprintf(2, "Could not set tickets to process. Number of tickets cannot be smaller than 1\n");
-        exit(1)
-    else
-        for (;;;);
-        
+        exit(1);
+    }
+    else {
+        for (;;);
+    }
     exit(0);
 }
