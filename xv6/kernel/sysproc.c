@@ -5,6 +5,8 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "pstat.h"
+#include "string.h"
 
 uint64
 sys_exit(void)
@@ -115,6 +117,7 @@ uint64 sys_getcnt(void) {
 
 // settickets syscall
 
+extern struct pstat pstat;
 uint64 sys_settickets(void) {
   int num, pid;
   
@@ -123,4 +126,24 @@ uint64 sys_settickets(void) {
 
   //set num tickets to calling process (pid)
   if (num < 1) return -1;
+
+  for(int i = 0; i < NPROC; i++) {
+    if (pstat.pid[i] == pid && pstat.inuse[i]) {
+      pstat.tickets[i] = num;
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
+uint64 sys_getpinfo(void) {
+  struct pstat* pst;
+  argaddr(0, &pst);
+
+  if (pst == NULL) return -1;
+
+  memcpy(&pst, &pstat, sizeof(pstat));
+
+  return 0;
 }

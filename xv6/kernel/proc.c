@@ -5,12 +5,15 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "pstat.h"
 
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
 struct proc *initproc;
+
+struct pstat pstat;
 
 int nextpid = 1;
 struct spinlock pid_lock;
