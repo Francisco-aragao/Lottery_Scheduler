@@ -6,7 +6,6 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "pstat.h"
-#include "string.h"
 
 uint64
 sys_exit(void)
@@ -138,12 +137,12 @@ uint64 sys_settickets(void) {
 }
 
 uint64 sys_getpinfo(void) {
-  struct pstat* pst;
-  argaddr(0, &pst);
+  uint64 pstat_ptr;
+  argaddr(0, &pstat_ptr);
 
-  if (pst == NULL) return -1;
+  if ((void*) pstat_ptr == (void*) 0) return -1;
 
-  memcpy(&pst, &pstat, sizeof(pstat));
+  memmove((void*) pstat_ptr, &pstat, sizeof(pstat));
 
   return 0;
 }
