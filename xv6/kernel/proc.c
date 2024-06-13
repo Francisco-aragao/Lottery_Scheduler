@@ -13,7 +13,7 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
-struct pstat pstat;
+struct pstat pstat = {};
 
 int nextpid = 1;
 struct spinlock pid_lock;

@@ -123,7 +123,7 @@ uint64 sys_settickets(void) {
   argint(0, &num);
   pid = myproc()->pid;
 
-  //set num tickets to calling process (pid)
+  // set num tickets to calling process (pid)
   if (num < 1) return -1;
 
   for(int i = 0; i < NPROC; i++) {
@@ -140,9 +140,14 @@ uint64 sys_getpinfo(void) {
   uint64 pstat_ptr;
   argaddr(0, &pstat_ptr);
 
-  if ((void*) pstat_ptr == (void*) 0) return -1;
+  // check nullptr
+  if (pstat_ptr == 0)
+    return -1;
 
-  memmove((void*) pstat_ptr, &pstat, sizeof(struct pstat));
+  // we need to use copyout to copy data from kernel to user space
+  struct proc *p = myproc();
+
+  copyout(p->pagetable, pstat_ptr, (char*) &pstat, sizeof(struct pstat));
 
   return 0;
 }
