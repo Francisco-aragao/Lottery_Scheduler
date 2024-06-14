@@ -25,7 +25,6 @@ uint32 rand() {
 // Number returned will be <= than RAND_MAX_SIGNED.
 // Adapted from: https://stackoverflow.com/questions/2509679/how-to-generate-a-random-integer-number-from-within-a-range
 int rand_range(int min, int max) {
-    
     // max <= RAND_MAX_SIGNED < RAND_MAX_UNSIGNED, so this is okay.
     uint32 num_bins = (uint32) max + 1 - min;
     uint32 num_rand = (uint32) RAND_MAX_SIGNED + 1;
