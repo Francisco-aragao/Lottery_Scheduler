@@ -482,22 +482,48 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-    // TODO: lottery to choose index of process to run
+    // Count total number of tickets
+    int ticket_count = 0;
+    for(p = proc; p < &proc[NPROC]; p++) {
+      // Only contribute to count if stat is inuse and runnable
+      int p_idx = p - proc;     
+      acquire(&p->lock);
+      if (pstat.inuse[p_idx] && p->state == RUNNABLE) {
+        ticket_count += pstat.tickets[p_idx];
+      }
+      release(&p->lock);
+    }
+
+    // Choose a winning ticket
+    if (ticket_count == 0) continue; // Nothing to choose
+    int winner = rand_range(1, ticket_count);
+    int counted_tickets = 0;
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
+      int p_idx = p - proc;
 
-      if (p->state == RUNNABLE) { 
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+      if (p->state == RUNNABLE && pstat.inuse[p_idx]) {
+        // Increment counted and check if winner has been chosen
+        counted_tickets += pstat.tickets[p_idx];
+        if (counted_tickets >= winner) {
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          // Also increment ticks
+          c->proc = 0;
+          pstat.ticks[p_idx] += 1;
+
+          // Run external loop again, counting tickets again and picking a new winner
+          release(&p->lock);
+          break;
+        }
       }
 
       release(&p->lock);
