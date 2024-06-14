@@ -147,7 +147,5 @@ uint64 sys_getpinfo(void) {
   // we need to use copyout to copy data from kernel to user space
   struct proc *p = myproc();
 
-  copyout(p->pagetable, pstat_ptr, (char*) &pstat, sizeof(struct pstat));
-
-  return 0;
+  return copyout(p->pagetable, pstat_ptr, (char*) &pstat, sizeof(struct pstat));
 }
