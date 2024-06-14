@@ -126,9 +126,9 @@ uint64 sys_settickets(void) {
   // set num tickets to calling process (pid)
   if (num < 1) return -1;
 
-  for(int i = 0; i < NPROC; i++) {
-    if (pstat.pid[i] == pid && pstat.inuse[i]) {
-      pstat.tickets[i] = num;
+  for(int p_idx = 0; p_idx < NPROC; p_idx++) {
+    if (pstat.pid[p_idx] == pid && pstat.inuse[p_idx]) {
+      pstat.tickets[p_idx] = num;
       return 0;
     }
   }

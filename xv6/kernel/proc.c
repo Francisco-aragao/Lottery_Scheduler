@@ -154,6 +154,15 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // Pointer math to get index of process in pstat
+  int p_idx = p - proc;
+
+  // Process was born, init pstat for that process
+  pstat.inuse[p_idx] = 1;
+  pstat.tickets[p_idx] = 1;
+  pstat.pid[p_idx] = p->pid;
+  pstat.ticks[p_idx] = 0;
+  
   return p;
 }
 
@@ -177,6 +186,12 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+
+  // Pointer math to get index of process in pstat
+  int p_idx = p - proc;
+
+  // Process has ended, so set its inuse flag to 0
+  pstat.inuse[p_idx] = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -330,6 +345,13 @@ fork(void)
   np->state = RUNNABLE;
   release(&np->lock);
 
+  // Pointer math to get index of process in pstat
+  int p_idx = p - proc;
+  int np_idx = np - proc;
+
+  // Set child tickets to parent tickets
+  pstat.tickets[np_idx] = pstat.tickets[p_idx];
+
   return pid;
 }
 
@@ -451,7 +473,7 @@ wait(uint64 addr)
 //    via swtch back to the scheduler.
 void
 scheduler(void)
-{
+{ 
   struct proc *p;
   struct cpu *c = mycpu();
   
@@ -460,9 +482,12 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
+    // TODO: lottery to choose index of process to run
+
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+
+      if (p->state == RUNNABLE) { 
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
@@ -474,6 +499,7 @@ scheduler(void)
         // It should have changed its p->state before coming back.
         c->proc = 0;
       }
+
       release(&p->lock);
     }
   }
