@@ -512,13 +512,14 @@ scheduler(void)
           // before jumping back to us.
           p->state = RUNNING;
           c->proc = p;
+          int tick_start = ticks;
           swtch(&c->context, &p->context);
 
           // Process is done running for now.
           // It should have changed its p->state before coming back.
           // Also increment ticks
           c->proc = 0;
-          pstat.ticks[p_idx] += 1;
+          pstat.ticks[p_idx] += ticks - tick_start;
 
           // Run external loop again, counting tickets again and picking a new winner
           release(&p->lock);
