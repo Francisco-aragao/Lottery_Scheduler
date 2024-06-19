@@ -135,6 +135,7 @@ UPROGS=\
 	$U/_getcnt\
 	$U/_ticketspam\
 	$U/_ps\
+	$U/_testtickets\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
