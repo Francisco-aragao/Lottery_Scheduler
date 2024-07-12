@@ -16,6 +16,8 @@ struct proc *initproc;
 
 struct pstat pstat = {};
 
+int total_tickets = 0;
+
 int nextpid = 1;
 struct spinlock pid_lock;
 
@@ -162,6 +164,8 @@ found:
   pstat.tickets[p_idx] = 1;
   pstat.pid[p_idx] = p->pid;
   pstat.ticks[p_idx] = 0;
+
+  total_tickets++;
   
   return p;
 }
@@ -352,6 +356,9 @@ fork(void)
   // Set child tickets to parent tickets
   pstat.tickets[np_idx] = pstat.tickets[p_idx];
 
+  // Increment total tickets
+  total_tickets += pstat.tickets[p_idx] - 1; // Need to sub one cause allocproc incremented already
+
   return pid;
 }
 
@@ -407,6 +414,11 @@ exit(int status)
 
   p->xstate = status;
   p->state = ZOMBIE;
+
+  // Pointer math to get index of process in pstat
+  int p_idx = p - proc;
+
+  total_tickets -= pstat.tickets[p_idx];
 
   release(&wait_lock);
 
@@ -482,21 +494,10 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-    // Count total number of tickets
-    int ticket_count = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
-      // Only contribute to count if stat is inuse and runnable
-      int p_idx = p - proc;     
-      acquire(&p->lock);
-      if (pstat.inuse[p_idx] && p->state == RUNNABLE) {
-        ticket_count += pstat.tickets[p_idx];
-      }
-      release(&p->lock);
-    }
-
     // Choose a winning ticket
-    if (ticket_count == 0) continue; // Nothing to choose
-    int winner = rand_range(1, ticket_count);
+    if (total_tickets == 0) continue; // Nothing to choose
+
+    int winner = rand_range(1, total_tickets);
     int counted_tickets = 0;
 
     for(p = proc; p < &proc[NPROC]; p++) {
@@ -506,6 +507,7 @@ scheduler(void)
       if (p->state == RUNNABLE && pstat.inuse[p_idx]) {
         // Increment counted and check if winner has been chosen
         counted_tickets += pstat.tickets[p_idx];
+        
         if (counted_tickets >= winner) {
           // Switch to chosen process.  It is the process's job
           // to release its lock and then reacquire it
@@ -612,6 +614,12 @@ sleep(void *chan, struct spinlock *lk)
   p->chan = chan;
   p->state = SLEEPING;
 
+  // Pointer math to get index of process in pstat
+  int p_idx = p - proc;
+
+  // Sleeping process has no tickets
+  total_tickets -= pstat.tickets[p_idx];
+
   sched();
 
   // Tidy up.
@@ -634,6 +642,12 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+
+        // Pointer math to get index of process in pstat
+        int p_idx = p - proc;
+
+        // Runnable process has tickets
+        total_tickets += pstat.tickets[p_idx];
       }
       release(&p->lock);
     }

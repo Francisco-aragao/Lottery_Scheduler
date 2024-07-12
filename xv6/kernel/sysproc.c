@@ -116,6 +116,7 @@ uint64 sys_getcnt(void) {
 
 // settickets syscall
 
+extern int total_tickets;
 extern struct pstat pstat;
 uint64 sys_settickets(void) {
   int num, pid;
@@ -128,6 +129,7 @@ uint64 sys_settickets(void) {
 
   for(int p_idx = 0; p_idx < NPROC; p_idx++) {
     if (pstat.pid[p_idx] == pid && pstat.inuse[p_idx]) {
+      total_tickets += num - pstat.tickets[p_idx];
       pstat.tickets[p_idx] = num;
       return 0;
     }
