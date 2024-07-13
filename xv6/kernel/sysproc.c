@@ -130,7 +130,6 @@ uint64 sys_settickets(void) {
 
   // Lock so we can modify pstat and total tickets safely
   acquire(&tickets_pstat_lock);
-  printf("acquired settickets %d \n", cpuid());
 
   // Set num tickets to calling process (pid)
   for(int p_idx = 0; p_idx < NPROC; p_idx++) {
@@ -142,13 +141,11 @@ uint64 sys_settickets(void) {
       pstat.tickets[p_idx] = num;
 
       release(&tickets_pstat_lock);
-      printf("released settickets %d \n", cpuid());
       return 0;
     }
   }
 
   release(&tickets_pstat_lock);
-  printf("released settickets %d \n", cpuid());
   return -1;
 }
 
@@ -164,10 +161,8 @@ uint64 sys_getpinfo(void) {
   struct proc *p = myproc();
 
   acquire(&tickets_pstat_lock);
-  printf("acquired getpinfo %d \n", cpuid());
   int rc = copyout(p->pagetable, pstat_ptr, (char*) &pstat, sizeof(struct pstat));
   release(&tickets_pstat_lock);
-  printf("released getpinfo %d \n", cpuid());
 
   return rc;
 }

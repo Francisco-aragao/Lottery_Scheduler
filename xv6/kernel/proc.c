@@ -165,7 +165,6 @@ found:
 
   // Process was born, init pstat for that process
   acquire(&tickets_pstat_lock);
-  printf("acquired allocproc %d \n", cpuid());
   pstat.inuse[p_idx] = 1;
   pstat.tickets[p_idx] = 1;
   pstat.pid[p_idx] = p->pid;
@@ -173,7 +172,6 @@ found:
 
   total_tickets++;
   release(&tickets_pstat_lock);
-  printf("released allocproc %d \n", cpuid());
   
   return p;
 }
@@ -204,10 +202,8 @@ freeproc(struct proc *p)
 
   // Process has ended, so set its inuse flag to 0
   acquire(&tickets_pstat_lock);
-  printf("acquired freeproc %d \n", cpuid());
   pstat.inuse[p_idx] = 0;
   release(&tickets_pstat_lock);
-  printf("released freeproc %d \n", cpuid());
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -367,13 +363,11 @@ fork(void)
 
   // Set child tickets equal to parent tickets
   acquire(&tickets_pstat_lock);
-  printf("acquired fork %d \n", cpuid());
   pstat.tickets[np_idx] = pstat.tickets[p_idx];
 
   // Increment total tickets
   total_tickets += pstat.tickets[p_idx] - 1; // Need to sub one cause allocproc incremented one already
   release(&tickets_pstat_lock);
-  printf("released fork %d \n", cpuid());
   release(&np->lock);
 
   return pid;
@@ -436,10 +430,8 @@ exit(int status)
   int p_idx = p - proc;
 
   acquire(&tickets_pstat_lock);
-  printf("acquired exit %d \n", cpuid());
   total_tickets -= pstat.tickets[p_idx];
   release(&tickets_pstat_lock);
-  printf("released exit %d \n", cpuid());
 
   release(&wait_lock);
 
@@ -548,9 +540,7 @@ scheduler(void)
           c->proc = p;
 
           // Save start ticks
-          acquire(&tickslock);
           int tick_start = ticks;
-          release(&tickslock);
           
           // Switch
           swtch(&c->context, &p->context);
@@ -560,11 +550,9 @@ scheduler(void)
           c->proc = 0;
 
           // Get delta ticks
-          acquire(&tickslock);
           acquire(&tickets_pstat_lock);
           pstat.ticks[p_idx] += ticks - tick_start;
           release(&tickets_pstat_lock);
-          release(&tickslock);
 
           // Run external loop again, picking a new winner
           release(&p->lock);
@@ -662,10 +650,8 @@ sleep(void *chan, struct spinlock *lk)
 
   // Sleeping process has no tickets
   acquire(&tickets_pstat_lock);
-  printf("acquired sleep %d \n", cpuid());
   total_tickets -= pstat.tickets[p_idx];
   release(&tickets_pstat_lock);
-  printf("released sleep %d \n", cpuid());
 
   sched();
 
@@ -695,10 +681,8 @@ wakeup(void *chan)
 
         // Runnable process has tickets
         acquire(&tickets_pstat_lock);
-        printf("acquired wakeup %d \n", cpuid());
         total_tickets += pstat.tickets[p_idx];
         release(&tickets_pstat_lock);
-        printf("released wakeup %d \n", cpuid());
       }
       release(&p->lock);
     }
