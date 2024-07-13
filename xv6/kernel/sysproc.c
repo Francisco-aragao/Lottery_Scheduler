@@ -116,25 +116,36 @@ uint64 sys_getcnt(void) {
 
 // settickets syscall
 
-extern int total_tickets;
 extern struct pstat pstat;
+extern int total_tickets;
+extern struct spinlock tickets_pstat_lock;
+
 uint64 sys_settickets(void) {
   int num, pid;
   
   argint(0, &num);
   pid = myproc()->pid;
 
-  // set num tickets to calling process (pid)
   if (num < 1) return -1;
 
+  // Lock so we can modify pstat and total tickets safely
+  acquire(&tickets_pstat_lock);
+
+  // Set num tickets to calling process (pid)
   for(int p_idx = 0; p_idx < NPROC; p_idx++) {
     if (pstat.pid[p_idx] == pid && pstat.inuse[p_idx]) {
+      // Update total tickets (don't count previous tickets)
       total_tickets += num - pstat.tickets[p_idx];
+
+      // Update process tickets
       pstat.tickets[p_idx] = num;
+
+      release(&tickets_pstat_lock);
       return 0;
     }
   }
 
+  release(&tickets_pstat_lock);
   return -1;
 }
 
@@ -149,5 +160,9 @@ uint64 sys_getpinfo(void) {
   // we need to use copyout to copy data from kernel to user space
   struct proc *p = myproc();
 
-  return copyout(p->pagetable, pstat_ptr, (char*) &pstat, sizeof(struct pstat));
+  acquire(&tickets_pstat_lock);
+  int rc = copyout(p->pagetable, pstat_ptr, (char*) &pstat, sizeof(struct pstat));
+  release(&tickets_pstat_lock);
+
+  return rc;
 }

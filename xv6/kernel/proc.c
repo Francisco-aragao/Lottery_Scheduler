@@ -14,9 +14,12 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
+// Track processes status and total tickets
 struct pstat pstat = {};
-
 int total_tickets = 0;
+
+// Lock to correctly count total tickets and modify pstat
+struct spinlock tickets_pstat_lock;
 
 int nextpid = 1;
 struct spinlock pid_lock;
@@ -58,6 +61,7 @@ procinit(void)
 {
   struct proc *p;
   
+  initlock(&tickets_pstat_lock, "tickets_pstat_lock");
   initlock(&count_lock, "count_lock");
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
@@ -160,12 +164,14 @@ found:
   int p_idx = p - proc;
 
   // Process was born, init pstat for that process
+  acquire(&tickets_pstat_lock);
   pstat.inuse[p_idx] = 1;
   pstat.tickets[p_idx] = 1;
   pstat.pid[p_idx] = p->pid;
   pstat.ticks[p_idx] = 0;
 
   total_tickets++;
+  release(&tickets_pstat_lock);
   
   return p;
 }
@@ -195,7 +201,9 @@ freeproc(struct proc *p)
   int p_idx = p - proc;
 
   // Process has ended, so set its inuse flag to 0
+  acquire(&tickets_pstat_lock);
   pstat.inuse[p_idx] = 0;
+  release(&tickets_pstat_lock);
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -347,17 +355,20 @@ fork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
-  release(&np->lock);
+  
 
   // Pointer math to get index of process in pstat
   int p_idx = p - proc;
   int np_idx = np - proc;
 
-  // Set child tickets to parent tickets
+  // Set child tickets equal to parent tickets
+  acquire(&tickets_pstat_lock);
   pstat.tickets[np_idx] = pstat.tickets[p_idx];
 
   // Increment total tickets
-  total_tickets += pstat.tickets[p_idx] - 1; // Need to sub one cause allocproc incremented already
+  total_tickets += pstat.tickets[p_idx] - 1; // Need to sub one cause allocproc incremented one already
+  release(&tickets_pstat_lock);
+  release(&np->lock);
 
   return pid;
 }
@@ -418,7 +429,9 @@ exit(int status)
   // Pointer math to get index of process in pstat
   int p_idx = p - proc;
 
+  acquire(&tickets_pstat_lock);
   total_tickets -= pstat.tickets[p_idx];
+  release(&tickets_pstat_lock);
 
   release(&wait_lock);
 
@@ -495,18 +508,29 @@ scheduler(void)
     intr_on();
 
     // Choose a winning ticket
-    if (total_tickets == 0) continue; // Nothing to choose
+    acquire(&tickets_pstat_lock);
 
+    if (total_tickets == 0) {
+      release(&tickets_pstat_lock);
+      continue; // Nothing to choose
+    }
+ 
     int winner = rand_range(1, total_tickets);
+    release(&tickets_pstat_lock);
+
     int counted_tickets = 0;
 
+    // Loop through all processes to find winner
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
+
       int p_idx = p - proc;
 
-      if (p->state == RUNNABLE && pstat.inuse[p_idx]) {
+      if (p->state == RUNNABLE && pstat.inuse[p_idx]) { //////////////////////////// LOCK INUSE LATER
         // Increment counted and check if winner has been chosen
+        acquire(&tickets_pstat_lock);
         counted_tickets += pstat.tickets[p_idx];
+        release(&tickets_pstat_lock);
         
         if (counted_tickets >= winner) {
           // Switch to chosen process.  It is the process's job
@@ -514,16 +538,23 @@ scheduler(void)
           // before jumping back to us.
           p->state = RUNNING;
           c->proc = p;
+
+          // Save start ticks
           int tick_start = ticks;
+          
+          // Switch
           swtch(&c->context, &p->context);
 
           // Process is done running for now.
           // It should have changed its p->state before coming back.
-          // Also increment ticks
           c->proc = 0;
-          pstat.ticks[p_idx] += ticks - tick_start;
 
-          // Run external loop again, counting tickets again and picking a new winner
+          // Get delta ticks
+          acquire(&tickets_pstat_lock);
+          pstat.ticks[p_idx] += ticks - tick_start;
+          release(&tickets_pstat_lock);
+
+          // Run external loop again, picking a new winner
           release(&p->lock);
           break;
         }
@@ -618,7 +649,9 @@ sleep(void *chan, struct spinlock *lk)
   int p_idx = p - proc;
 
   // Sleeping process has no tickets
+  acquire(&tickets_pstat_lock);
   total_tickets -= pstat.tickets[p_idx];
+  release(&tickets_pstat_lock);
 
   sched();
 
@@ -647,7 +680,9 @@ wakeup(void *chan)
         int p_idx = p - proc;
 
         // Runnable process has tickets
+        acquire(&tickets_pstat_lock);
         total_tickets += pstat.tickets[p_idx];
+        release(&tickets_pstat_lock);
       }
       release(&p->lock);
     }
