@@ -526,7 +526,11 @@ scheduler(void)
 
       int p_idx = p - proc;
 
-      if (p->state == RUNNABLE && pstat.inuse[p_idx]) { //////////////////////////// LOCK INUSE LATER
+      acquire(&tickets_pstat_lock);
+      int p_inuse = pstat.inuse[p_idx];
+      release(&tickets_pstat_lock);
+
+      if (p->state == RUNNABLE && p_inuse) {
         // Increment counted and check if winner has been chosen
         acquire(&tickets_pstat_lock);
         counted_tickets += pstat.tickets[p_idx];
